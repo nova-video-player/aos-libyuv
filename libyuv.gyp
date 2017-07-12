@@ -18,35 +18,57 @@
   },
   'variables': {
     'use_system_libjpeg%': 0,
-    'libyuv_disable_jpeg%': 0,
+    # Can be enabled if your jpeg has GYP support.
+    'libyuv_disable_jpeg%': 1,
     # 'chromium_code' treats libyuv as internal and increases warning level.
     'chromium_code': 1,
+    # clang compiler default variable usable by other apps that include libyuv.
+    'clang%': 0,
     # Link-Time Optimizations.
     'use_lto%': 0,
+    'mips_msa%': 0,  # Default to msa off.
     'build_neon': 0,
+    'build_msa': 0,
     'conditions': [
        ['(target_arch == "armv7" or target_arch == "armv7s" or \
        (target_arch == "arm" and arm_version >= 7) or target_arch == "arm64")\
-       and (arm_neon == 1 or arm_neon_optional == 1)',
-       {
+       and (arm_neon == 1 or arm_neon_optional == 1)', {
          'build_neon': 1,
+       }],
+       ['(target_arch == "mipsel" or target_arch == "mips64el")\
+       and (mips_msa == 1)',
+       {
+         'build_msa': 1,
        }],
     ],
   },
-  'conditions': [
-    ['build_neon != 0', {
-      'targets': [
-        # The NEON-specific components.
-        {
-          'target_name': 'libyuv_neon',
-          'type': 'static_library',
-          'standalone_static_library': 1,
-          # TODO(noahric): This should remove whatever mfpu is set, not
-          # just vfpv3-d16.
+
+  'targets': [
+    {
+      'target_name': 'libyuv',
+      # Change type to 'shared_library' to build .so or .dll files.
+      'type': 'static_library',
+      'variables': {
+        'optimize': 'max',  # enable O2 and ltcg.
+      },
+      # Allows libyuv.a redistributable library without external dependencies.
+      'standalone_static_library': 1,
+      'conditions': [
+       # Disable -Wunused-parameter
+        ['clang == 1', {
+          'cflags': [
+            '-Wno-unused-parameter',
+         ],
+        }],
+        ['build_neon != 0', {
+          'defines': [
+            'LIBYUV_NEON',
+          ],
           'cflags!': [
             '-mfpu=vfp',
             '-mfpu=vfpv3',
             '-mfpu=vfpv3-d16',
+            # '-mthumb',  # arm32 not thumb
           ],
           'conditions': [
             # Disable LTO in libyuv_neon target due to gcc 4.9 compiler bug.
@@ -60,45 +82,16 @@
             ['target_arch != "arm64"', {
               'cflags': [
                 '-mfpu=neon',
+                # '-marm',  # arm32 not thumb
               ],
             }],
           ],
-          'include_dirs': [
-            'include',
-            '.',
+        }],
+        ['build_msa != 0', {
+          'defines': [
+            'LIBYUV_MSA',
           ],
-          'direct_dependent_settings': {
-            'include_dirs': [
-              'include',
-              '.',
-            ],
-          },
-          'sources': [
-            # sources.
-            'source/compare_neon.cc',
-            'source/compare_neon64.cc',
-            'source/rotate_neon.cc',
-            'source/rotate_neon64.cc',
-            'source/row_neon.cc',
-            'source/row_neon64.cc',
-            'source/scale_neon.cc',
-            'source/scale_neon64.cc',
-          ],
-        },
-      ],
-    }],
-  ],
-  'targets': [
-    {
-      'target_name': 'libyuv',
-      # Change type to 'shared_library' to build .so or .dll files.
-      'type': 'static_library',
-      'variables': {
-        'optimize': 'max',  # enable O2 and ltcg.
-      },
-      # Allows libyuv.a redistributable library without external dependencies.
-      'standalone_static_library': 1,
-      'conditions': [
+        }],
         ['OS != "ios" and libyuv_disable_jpeg != 1', {
           'defines': [
             'HAVE_JPEG'
@@ -123,27 +116,12 @@
             }],
           ],
         }],
-        ['build_neon != 0', {
-          'dependencies': [
-            'libyuv_neon',
-          ],
-          'defines': [
-            'LIBYUV_NEON',
-          ],
-        }],
-        # MemorySanitizer does not support assembly code yet.
-        # http://crbug.com/344505
-        [ 'msan == 1', {
-          'defines': [
-            'LIBYUV_DISABLE_X86',
-          ],
-        }],
       ], #conditions
       'defines': [
         # Enable the following 3 macros to turn off assembly for specified CPU.
         # 'LIBYUV_DISABLE_X86',
         # 'LIBYUV_DISABLE_NEON',
-        # 'LIBYUV_DISABLE_MIPS',
+        # 'LIBYUV_DISABLE_DSPR2',
         # Enable the following macro to build libyuv as a shared library (dll).
         # 'LIBYUV_USING_SHARED_LIBRARY',
         # TODO(fbarchard): Make these into gyp defines.

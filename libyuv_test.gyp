@@ -8,26 +8,26 @@
 
 {
   'variables': {
-    'libyuv_disable_jpeg%': 0,
-    'libyuv_enable_svn%': 0,
+    # Can be enabled if your jpeg has GYP support.
+    'libyuv_disable_jpeg%': 1,
+    'mips_msa%': 0,  # Default to msa off.
   },
   'targets': [
     {
       'target_name': 'libyuv_unittest',
-      'type': 'executable',
+      'type': '<(gtest_target_type)',
       'dependencies': [
         'libyuv.gyp:libyuv',
-        # The tests are based on gtest
         'testing/gtest.gyp:gtest',
-        'testing/gtest.gyp:gtest_main',
+        'third_party/gflags/gflags.gyp:gflags',
       ],
-      'defines': [
-        # Enable the following 3 macros to turn off assembly for specified CPU.
-        # 'LIBYUV_DISABLE_X86',
-        # 'LIBYUV_DISABLE_NEON',
-        # 'LIBYUV_DISABLE_MIPS',
-        # Enable the following macro to build libyuv as a shared library (dll).
-        # 'LIBYUV_USING_SHARED_LIBRARY',
+      'direct_dependent_settings': {
+        'defines': [
+          'GTEST_RELATIVE_PATH',
+        ],
+      },
+      'export_dependent_settings': [
+        '<(DEPTH)/testing/gtest.gyp:gtest',
       ],
       'sources': [
         # headers
@@ -39,42 +39,44 @@
         'unit_test/color_test.cc',
         'unit_test/convert_test.cc',
         'unit_test/cpu_test.cc',
+        'unit_test/cpu_thread_test.cc',
         'unit_test/math_test.cc',
         'unit_test/planar_test.cc',
         'unit_test/rotate_argb_test.cc',
         'unit_test/rotate_test.cc',
         'unit_test/scale_argb_test.cc',
-        'unit_test/scale_color_test.cc',
         'unit_test/scale_test.cc',
         'unit_test/unit_test.cc',
         'unit_test/video_common_test.cc',
-        'unit_test/version_test.cc',
       ],
       'conditions': [
-        [ 'libyuv_enable_svn == 1', {
-          'defines': [
-            'LIBYUV_SVNREVISION="<!(svnversion -n)"',
-          ],
-        }],
         ['OS=="linux"', {
           'cflags': [
             '-fexceptions',
-          ],
-        }],
-        [ 'OS == "ios" and target_subarch == 64', {
-          'defines': [
-            'LIBYUV_DISABLE_NEON'
           ],
         }],
         [ 'OS == "ios"', {
           'xcode_settings': {
             'DEBUGGING_SYMBOLS': 'YES',
             'DEBUG_INFORMATION_FORMAT' : 'dwarf-with-dsym',
+            # Work around compile issue with isosim.mm, see
+            # https://code.google.com/p/libyuv/issues/detail?id=548 for details.
+            'WARNING_CFLAGS': [
+              '-Wno-sometimes-uninitialized',
+            ],
           },
+          'cflags': [
+            '-Wno-sometimes-uninitialized',
+          ],
         }],
         [ 'OS != "ios" and libyuv_disable_jpeg != 1', {
           'defines': [
             'HAVE_JPEG',
+          ],
+        }],
+        ['OS=="android"', {
+          'dependencies': [
+            '<(DEPTH)/testing/android/native_test.gyp:native_test_native_code',
           ],
         }],
         # TODO(YangZhang): These lines can be removed when high accuracy
@@ -86,10 +88,23 @@
           'defines': [
             'LIBYUV_NEON'
           ],
-       }],
+        }],
+        [ '(target_arch == "mipsel" or target_arch == "mips64el") \
+          and (mips_msa == 1)', {
+          'defines': [
+            'LIBYUV_MSA'
+          ],
+        }],
       ], # conditions
+      'defines': [
+        # Enable the following 3 macros to turn off assembly for specified CPU.
+        # 'LIBYUV_DISABLE_X86',
+        # 'LIBYUV_DISABLE_NEON',
+        # 'LIBYUV_DISABLE_DSPR2',
+        # Enable the following macro to build libyuv as a shared library (dll).
+        # 'LIBYUV_USING_SHARED_LIBRARY',
+      ],
     },
-
     {
       'target_name': 'compare',
       'type': 'executable',
@@ -109,14 +124,14 @@
       ], # conditions
     },
     {
-      'target_name': 'convert',
+      'target_name': 'yuvconvert',
       'type': 'executable',
       'dependencies': [
         'libyuv.gyp:libyuv',
       ],
       'sources': [
         # sources
-        'util/convert.cc',
+        'util/yuvconvert.cc',
       ],
       'conditions': [
         ['OS=="linux"', {
@@ -140,12 +155,6 @@
         'libyuv.gyp:libyuv',
       ],
       'conditions': [
-        [ 'OS == "ios" and target_subarch == 64', {
-          'defines': [
-            'LIBYUV_DISABLE_NEON'
-          ],
-        }],
-
         [ 'OS != "ios" and libyuv_disable_jpeg != 1', {
           'defines': [
             'HAVE_JPEG',
@@ -166,6 +175,26 @@
       ],
     },
   ], # targets
+  'conditions': [
+    ['OS=="android"', {
+      'targets': [
+        {
+          'target_name': 'yuv_unittest_apk',
+          'type': 'none',
+          'variables': {
+            'test_suite_name': 'yuv_unittest',
+            'input_shlib_path': '<(SHARED_LIB_DIR)/(SHARED_LIB_PREFIX)libyuv_unittest<(SHARED_LIB_SUFFIX)',
+          },
+          'includes': [
+            'build/apk_test.gypi',
+          ],
+          'dependencies': [
+            'libyuv_unittest',
+          ],
+        },
+      ],
+    }],
+  ],
 }
 
 # Local Variables:
