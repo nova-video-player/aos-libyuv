@@ -1,3 +1,9 @@
+### Libyuv
+
+Libyuv as used by [AVP](https://github.com/archos-sa/aos-AVP).
+Please see upstream project: https://chromium.googlesource.com/libyuv/libyuv/
+
+
 **libyuv** is an open source project that includes YUV scaling and conversion functionality.
 
 * Scale YUV to prepare content for compression, with point, bilinear or box filter.
