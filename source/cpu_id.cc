@@ -19,15 +19,9 @@
 #include <immintrin.h>  // For _xgetbv()
 #endif
 
-#if !defined(__native_client__)
-#include <stdlib.h>  // For getenv()
-#endif
-
 // For ArmCpuCaps() but unittested on all platforms
-#include <stdio.h>
+#include <stdio.h>  // For fopen()
 #include <string.h>
-
-#include "libyuv/basic_types.h"  // For CPU_X86
 
 #ifdef __cplusplus
 namespace libyuv {
@@ -46,7 +40,6 @@ extern "C" {
 // cpu_info_ variable for SIMD instruction sets detected.
 LIBYUV_API int cpu_info_ = 0;
 
-// TODO(fbarchard): Consider using int for cpuid so casting is not needed.
 // Low level cpuid for X86.
 #if (defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || \
      defined(__x86_64__)) &&                                     \
@@ -81,9 +74,9 @@ void CpuId(int info_eax, int info_ecx, int* cpu_info) {
   asm volatile(
 #if defined(__i386__) && defined(__PIC__)
       // Preserve ebx for fpic 32 bit.
-      "mov %%ebx, %%edi                          \n"
+      "mov         %%ebx, %%edi                  \n"
       "cpuid                                     \n"
-      "xchg %%edi, %%ebx                         \n"
+      "xchg        %%edi, %%ebx                  \n"
       : "=D"(info_ebx),
 #else
       "cpuid                                     \n"
@@ -114,17 +107,17 @@ void CpuId(int eax, int ecx, int* cpu_info) {
 //  }
 // For VS2013 and earlier 32 bit, the _xgetbv(0) optimizer produces bad code.
 // https://code.google.com/p/libyuv/issues/detail?id=529
-#if defined(_M_IX86) && (_MSC_VER < 1900)
+#if defined(_M_IX86) && defined(_MSC_VER) && (_MSC_VER < 1900)
 #pragma optimize("g", off)
 #endif
 #if (defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || \
      defined(__x86_64__)) &&                                     \
     !defined(__pnacl__) && !defined(__CLR_VER) && !defined(__native_client__)
 // X86 CPUs have xgetbv to detect OS saves high parts of ymm registers.
-int GetXCR0() {
+static int GetXCR0() {
   int xcr0 = 0;
 #if defined(_MSC_FULL_VER) && (_MSC_FULL_VER >= 160040219)
-  xcr0 = _xgetbv(0);  // VS2010 SP1 required.
+  xcr0 = (int)_xgetbv(0);  // VS2010 SP1 required.  NOLINT
 #elif defined(__i386__) || defined(__x86_64__)
   asm(".byte 0x0f, 0x01, 0xd0" : "=a"(xcr0) : "c"(0) : "%edx");
 #endif  // defined(__i386__) || defined(__x86_64__)
@@ -135,21 +128,22 @@ int GetXCR0() {
 #define GetXCR0() 0
 #endif  // defined(_M_IX86) || defined(_M_X64) ..
 // Return optimization to previous setting.
-#if defined(_M_IX86) && (_MSC_VER < 1900)
+#if defined(_M_IX86) && defined(_MSC_VER) && (_MSC_VER < 1900)
 #pragma optimize("g", on)
 #endif
 
-// based on libvpx arm_cpudetect.c
+// Based on libvpx arm_cpudetect.c
 // For Arm, but public to allow testing on any CPU
 LIBYUV_API SAFEBUFFERS int ArmCpuCaps(const char* cpuinfo_name) {
   char cpuinfo_line[512];
-  FILE* f = fopen(cpuinfo_name, "r");
+  FILE* f = fopen(cpuinfo_name, "re");
   if (!f) {
     // Assume Neon if /proc/cpuinfo is unavailable.
     // This will occur for Chrome sandbox for Pepper or Render process.
     return kCpuHasNEON;
   }
-  while (fgets(cpuinfo_line, sizeof(cpuinfo_line) - 1, f)) {
+  memset(cpuinfo_line, 0, sizeof(cpuinfo_line));
+  while (fgets(cpuinfo_line, sizeof(cpuinfo_line), f)) {
     if (memcmp(cpuinfo_line, "Features", 8) == 0) {
       char* p = strstr(cpuinfo_line, " neon");
       if (p && (p[5] == ' ' || p[5] == '\n')) {
@@ -168,64 +162,142 @@ LIBYUV_API SAFEBUFFERS int ArmCpuCaps(const char* cpuinfo_name) {
   return 0;
 }
 
-// TODO(fbarchard): Consider read_msa_ir().
-// TODO(fbarchard): Add unittest.
-LIBYUV_API SAFEBUFFERS int MipsCpuCaps(const char* cpuinfo_name,
-                                       const char ase[]) {
+LIBYUV_API SAFEBUFFERS int RiscvCpuCaps(const char* cpuinfo_name) {
   char cpuinfo_line[512];
-  FILE* f = fopen(cpuinfo_name, "r");
+  int flag = 0;
+  FILE* f = fopen(cpuinfo_name, "re");
   if (!f) {
-    // ase enabled if /proc/cpuinfo is unavailable.
-    if (strcmp(ase, " msa") == 0) {
-      return kCpuHasMSA;
-    }
-    return kCpuHasDSPR2;
+#if defined(__riscv_vector)
+    // Assume RVV if /proc/cpuinfo is unavailable.
+    // This will occur for Chrome sandbox for Pepper or Render process.
+    return kCpuHasRVV;
+#else
+    return 0;
+#endif
   }
-  while (fgets(cpuinfo_line, sizeof(cpuinfo_line) - 1, f)) {
-    if (memcmp(cpuinfo_line, "ASEs implemented", 16) == 0) {
-      char* p = strstr(cpuinfo_line, ase);
-      if (p) {
-        fclose(f);
-        if (strcmp(ase, " msa") == 0) {
-          return kCpuHasMSA;
+  memset(cpuinfo_line, 0, sizeof(cpuinfo_line));
+  while (fgets(cpuinfo_line, sizeof(cpuinfo_line), f)) {
+    if (memcmp(cpuinfo_line, "isa", 3) == 0) {
+      // ISA string must begin with rv64{i,e,g} for a 64-bit processor.
+      char* isa = strstr(cpuinfo_line, "rv64");
+      if (isa) {
+        size_t isa_len = strlen(isa);
+        char* extensions;
+        size_t extensions_len = 0;
+        size_t std_isa_len;
+        // Remove the new-line character at the end of string
+        if (isa[isa_len - 1] == '\n') {
+          isa[--isa_len] = '\0';
         }
-        return kCpuHasDSPR2;
+        // 5 ISA characters
+        if (isa_len < 5) {
+          fclose(f);
+          return 0;
+        }
+        // Skip {i,e,g} canonical checking.
+        // Skip rvxxx
+        isa += 5;
+        // Find the very first occurrence of 's', 'x' or 'z'.
+        // To detect multi-letter standard, non-standard, and
+        // supervisor-level extensions.
+        extensions = strpbrk(isa, "zxs");
+        if (extensions) {
+          // Multi-letter extensions are seperated by a single underscore
+          // as described in RISC-V User-Level ISA V2.2.
+          char* ext = strtok(extensions, "_");
+          extensions_len = strlen(extensions);
+          while (ext) {
+            // Search for the ZVFH (Vector FP16) extension.
+            if (!strcmp(ext, "zvfh")) {
+              flag |= kCpuHasRVVZVFH;
+            }
+            ext = strtok(NULL, "_");
+          }
+        }
+        std_isa_len = isa_len - extensions_len - 5;
+        // Detect the v in the standard single-letter extensions.
+        if (memchr(isa, 'v', std_isa_len)) {
+          // The RVV implied the F extension.
+          flag |= kCpuHasRVV;
+        }
       }
+    }
+#if defined(__riscv_vector)
+    // Assume RVV if /proc/cpuinfo is from x86 host running QEMU.
+    else if ((memcmp(cpuinfo_line, "vendor_id\t: GenuineIntel", 24) == 0) ||
+             (memcmp(cpuinfo_line, "vendor_id\t: AuthenticAMD", 24) == 0)) {
+      fclose(f);
+      return kCpuHasRVV;
+    }
+#endif
+  }
+  fclose(f);
+  return flag;
+}
+
+LIBYUV_API SAFEBUFFERS int MipsCpuCaps(const char* cpuinfo_name) {
+  char cpuinfo_line[512];
+  int flag = 0;
+  FILE* f = fopen(cpuinfo_name, "re");
+  if (!f) {
+    // Assume nothing if /proc/cpuinfo is unavailable.
+    // This will occur for Chrome sandbox for Pepper or Render process.
+    return 0;
+  }
+  memset(cpuinfo_line, 0, sizeof(cpuinfo_line));
+  while (fgets(cpuinfo_line, sizeof(cpuinfo_line), f)) {
+    if (memcmp(cpuinfo_line, "cpu model", 9) == 0) {
+      // Workaround early kernel without MSA in ASEs line.
+      if (strstr(cpuinfo_line, "Loongson-2K")) {
+        flag |= kCpuHasMSA;
+      }
+    }
+    if (memcmp(cpuinfo_line, "ASEs implemented", 16) == 0) {
+      if (strstr(cpuinfo_line, "msa")) {
+        flag |= kCpuHasMSA;
+      }
+      // ASEs is the last line, so we can break here.
+      break;
     }
   }
   fclose(f);
-  return 0;
+  return flag;
 }
 
-// Test environment variable for disabling CPU features. Any non-zero value
-// to disable. Zero ignored to make it easy to set the variable on/off.
-#if !defined(__native_client__) && !defined(_M_ARM)
+#define LOONGARCH_CFG2 0x2
+#define LOONGARCH_CFG2_LSX (1 << 6)
+#define LOONGARCH_CFG2_LASX (1 << 7)
 
-static LIBYUV_BOOL TestEnv(const char* name) {
-  const char* var = getenv(name);
-  if (var) {
-    if (var[0] != '0') {
-      return LIBYUV_TRUE;
-    }
-  }
-  return LIBYUV_FALSE;
-}
-#else  // nacl does not support getenv().
-static LIBYUV_BOOL TestEnv(const char*) {
-  return LIBYUV_FALSE;
+#if defined(__loongarch__)
+LIBYUV_API SAFEBUFFERS int LoongarchCpuCaps(void) {
+  int flag = 0;
+  uint32_t cfg2 = 0;
+
+  __asm__ volatile("cpucfg %0, %1 \n\t" : "+&r"(cfg2) : "r"(LOONGARCH_CFG2));
+
+  if (cfg2 & LOONGARCH_CFG2_LSX)
+    flag |= kCpuHasLSX;
+
+  if (cfg2 & LOONGARCH_CFG2_LASX)
+    flag |= kCpuHasLASX;
+  return flag;
 }
 #endif
 
 static SAFEBUFFERS int GetCpuFlags(void) {
   int cpu_info = 0;
-#if !defined(__pnacl__) && !defined(__CLR_VER) && defined(CPU_X86)
+#if !defined(__pnacl__) && !defined(__CLR_VER) &&                   \
+    (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || \
+     defined(_M_IX86))
   int cpu_info0[4] = {0, 0, 0, 0};
   int cpu_info1[4] = {0, 0, 0, 0};
   int cpu_info7[4] = {0, 0, 0, 0};
+  int cpu_einfo7[4] = {0, 0, 0, 0};
   CpuId(0, 0, cpu_info0);
   CpuId(1, 0, cpu_info1);
   if (cpu_info0[0] >= 7) {
     CpuId(7, 0, cpu_info7);
+    CpuId(7, 1, cpu_einfo7);
   }
   cpu_info = kCpuHasX86 | ((cpu_info1[3] & 0x04000000) ? kCpuHasSSE2 : 0) |
              ((cpu_info1[2] & 0x00000200) ? kCpuHasSSSE3 : 0) |
@@ -238,64 +310,29 @@ static SAFEBUFFERS int GetCpuFlags(void) {
       ((GetXCR0() & 6) == 6)) {  // Test OS saves YMM registers
     cpu_info |= kCpuHasAVX | ((cpu_info7[1] & 0x00000020) ? kCpuHasAVX2 : 0) |
                 ((cpu_info1[2] & 0x00001000) ? kCpuHasFMA3 : 0) |
-                ((cpu_info1[2] & 0x20000000) ? kCpuHasF16C : 0);
+                ((cpu_info1[2] & 0x20000000) ? kCpuHasF16C : 0) |
+                ((cpu_einfo7[0] & 0x00000010) ? kCpuHasAVXVNNI : 0) |
+                ((cpu_einfo7[3] & 0x00000010) ? kCpuHasAVXVNNIINT8 : 0);
 
     // Detect AVX512bw
     if ((GetXCR0() & 0xe0) == 0xe0) {
-      cpu_info |= (cpu_info7[1] & 0x40000000) ? kCpuHasAVX3 : 0;
+      cpu_info |= (cpu_info7[1] & 0x40000000) ? kCpuHasAVX512BW : 0;
+      cpu_info |= (cpu_info7[1] & 0x80000000) ? kCpuHasAVX512VL : 0;
+      cpu_info |= (cpu_info7[2] & 0x00000002) ? kCpuHasAVX512VBMI : 0;
+      cpu_info |= (cpu_info7[2] & 0x00000040) ? kCpuHasAVX512VBMI2 : 0;
+      cpu_info |= (cpu_info7[2] & 0x00000800) ? kCpuHasAVX512VNNI : 0;
+      cpu_info |= (cpu_info7[2] & 0x00001000) ? kCpuHasAVX512VBITALG : 0;
+      cpu_info |= (cpu_einfo7[3] & 0x00080000) ? kCpuHasAVX10 : 0;
     }
   }
-
-  // Environment variable overrides for testing.
-  if (TestEnv("LIBYUV_DISABLE_X86")) {
-    cpu_info &= ~kCpuHasX86;
-  }
-  if (TestEnv("LIBYUV_DISABLE_SSE2")) {
-    cpu_info &= ~kCpuHasSSE2;
-  }
-  if (TestEnv("LIBYUV_DISABLE_SSSE3")) {
-    cpu_info &= ~kCpuHasSSSE3;
-  }
-  if (TestEnv("LIBYUV_DISABLE_SSE41")) {
-    cpu_info &= ~kCpuHasSSE41;
-  }
-  if (TestEnv("LIBYUV_DISABLE_SSE42")) {
-    cpu_info &= ~kCpuHasSSE42;
-  }
-  if (TestEnv("LIBYUV_DISABLE_AVX")) {
-    cpu_info &= ~kCpuHasAVX;
-  }
-  if (TestEnv("LIBYUV_DISABLE_AVX2")) {
-    cpu_info &= ~kCpuHasAVX2;
-  }
-  if (TestEnv("LIBYUV_DISABLE_ERMS")) {
-    cpu_info &= ~kCpuHasERMS;
-  }
-  if (TestEnv("LIBYUV_DISABLE_FMA3")) {
-    cpu_info &= ~kCpuHasFMA3;
-  }
-  if (TestEnv("LIBYUV_DISABLE_AVX3")) {
-    cpu_info &= ~kCpuHasAVX3;
-  }
-  if (TestEnv("LIBYUV_DISABLE_F16C")) {
-    cpu_info &= ~kCpuHasF16C;
-  }
-
 #endif
 #if defined(__mips__) && defined(__linux__)
-#if defined(__mips_dspr2)
-  cpu_info |= kCpuHasDSPR2;
-#endif
-#if defined(__mips_msa)
-  cpu_info = MipsCpuCaps("/proc/cpuinfo", " msa");
-#endif
+  cpu_info = MipsCpuCaps("/proc/cpuinfo");
   cpu_info |= kCpuHasMIPS;
-  if (getenv("LIBYUV_DISABLE_DSPR2")) {
-    cpu_info &= ~kCpuHasDSPR2;
-  }
-  if (getenv("LIBYUV_DISABLE_MSA")) {
-    cpu_info &= ~kCpuHasMSA;
-  }
+#endif
+#if defined(__loongarch__) && defined(__linux__)
+  cpu_info = LoongarchCpuCaps();
+  cpu_info |= kCpuHasLOONGARCH;
 #endif
 #if defined(__arm__) || defined(__aarch64__)
 // gcc -mfpu=neon defines __ARM_NEON__
@@ -314,13 +351,11 @@ static SAFEBUFFERS int GetCpuFlags(void) {
   cpu_info = ArmCpuCaps("/proc/cpuinfo");
 #endif
   cpu_info |= kCpuHasARM;
-  if (TestEnv("LIBYUV_DISABLE_NEON")) {
-    cpu_info &= ~kCpuHasNEON;
-  }
 #endif  // __arm__
-  if (TestEnv("LIBYUV_DISABLE_ASM")) {
-    cpu_info = 0;
-  }
+#if defined(__riscv) && defined(__linux__)
+  cpu_info = RiscvCpuCaps("/proc/cpuinfo");
+  cpu_info |= kCpuHasRISCV;
+#endif  // __riscv
   cpu_info |= kCpuInitialized;
   return cpu_info;
 }
@@ -329,11 +364,7 @@ static SAFEBUFFERS int GetCpuFlags(void) {
 LIBYUV_API
 int MaskCpuFlags(int enable_flags) {
   int cpu_info = GetCpuFlags() & enable_flags;
-#ifdef __ATOMIC_RELAXED
-  __atomic_store_n(&cpu_info_, cpu_info, __ATOMIC_RELAXED);
-#else
-  cpu_info_ = cpu_info;
-#endif
+  SetCpuFlags(cpu_info);
   return cpu_info;
 }
 

@@ -37,14 +37,14 @@ int num_skip_org = 0;   // Number of frames to skip in original.
 int num_frames = 0;     // Number of frames to convert.
 int filter = 1;         // Bilinear filter for scaling.
 
-static __inline uint32 Abs(int32 v) {
+static __inline uint32_t Abs(int32_t v) {
   return v >= 0 ? v : -v;
 }
 
 // Parse PYUV format. ie name.1920x800_24Hz_P420.yuv
-bool ExtractResolutionFromFilename(const char* name,
-                                   int* width_ptr,
-                                   int* height_ptr) {
+static bool ExtractResolutionFromFilename(const char* name,
+                                          int* width_ptr,
+                                          int* height_ptr) {
   // Isolate the .width_height. section of the filename by searching for a
   // dot or underscore followed by a digit.
   for (int i = 0; name[i]; ++i) {
@@ -59,7 +59,7 @@ bool ExtractResolutionFromFilename(const char* name,
   return false;
 }
 
-void PrintHelp(const char* program) {
+static void PrintHelp(const char* program) {
   printf("%s [-options] src_argb.raw dst_yuv.raw\n", program);
   printf(
       " -s <width> <height> .... specify source resolution.  "
@@ -78,9 +78,10 @@ void PrintHelp(const char* program) {
   exit(0);
 }
 
-void ParseOptions(int argc, const char* argv[]) {
-  if (argc <= 1)
+static void ParseOptions(int argc, const char* argv[]) {
+  if (argc <= 1) {
     PrintHelp(argv[0]);
+  }
   for (int c = 1; c < argc; ++c) {
     if (!strcmp(argv[c], "-v")) {
       verbose = true;
@@ -158,29 +159,29 @@ void ParseOptions(int argc, const char* argv[]) {
 static const int kTileX = 32;
 static const int kTileY = 32;
 
-static int TileARGBScale(const uint8* src_argb,
+static int TileARGBScale(const uint8_t* src_argb,
                          int src_stride_argb,
                          int src_width,
                          int src_height,
-                         uint8* dst_argb,
+                         uint8_t* dst_argb,
                          int dst_stride_argb,
-                         int dst_width,
-                         int dst_height,
+                         int destination_width,
+                         int destination_height,
                          libyuv::FilterMode filtering) {
-  for (int y = 0; y < dst_height; y += kTileY) {
-    for (int x = 0; x < dst_width; x += kTileX) {
+  for (int y = 0; y < destination_height; y += kTileY) {
+    for (int x = 0; x < destination_width; x += kTileX) {
       int clip_width = kTileX;
-      if (x + clip_width > dst_width) {
-        clip_width = dst_width - x;
+      if (x + clip_width > destination_width) {
+        clip_width = destination_width - x;
       }
       int clip_height = kTileY;
-      if (y + clip_height > dst_height) {
-        clip_height = dst_height - y;
+      if (y + clip_height > destination_height) {
+        clip_height = destination_height - y;
       }
       int r = libyuv::ARGBScaleClip(src_argb, src_stride_argb, src_width,
                                     src_height, dst_argb, dst_stride_argb,
-                                    dst_width, dst_height, x, y, clip_width,
-                                    clip_height, filtering);
+                                    destination_width, destination_height, x, y,
+                                    clip_width, clip_height, filtering);
       if (r) {
         return r;
       }
@@ -242,9 +243,9 @@ int main(int argc, const char* argv[]) {
   fseek(file_org, num_skip_org * total_size, SEEK_SET);
 #endif
 
-  uint8* const ch_org = new uint8[org_size];
-  uint8* const ch_dst = new uint8[dst_size];
-  uint8* const ch_rec = new uint8[total_size];
+  uint8_t* const ch_org = new uint8_t[org_size];
+  uint8_t* const ch_dst = new uint8_t[dst_size];
+  uint8_t* const ch_rec = new uint8_t[total_size];
   if (ch_org == NULL || ch_rec == NULL) {
     fprintf(stderr, "No memory available\n");
     fclose(file_org);
@@ -265,14 +266,16 @@ int main(int argc, const char* argv[]) {
 
   int number_of_frames;
   for (number_of_frames = 0;; ++number_of_frames) {
-    if (num_frames && number_of_frames >= num_frames)
+    if (num_frames && number_of_frames >= num_frames) {
       break;
+    }
 
     // Load original YUV or ARGB frame.
     size_t bytes_org =
-        fread(ch_org, sizeof(uint8), static_cast<size_t>(org_size), file_org);
-    if (bytes_org < static_cast<size_t>(org_size))
+        fread(ch_org, sizeof(uint8_t), static_cast<size_t>(org_size), file_org);
+    if (bytes_org < static_cast<size_t>(org_size)) {
       break;
+    }
 
     // TODO(fbarchard): Attenuate doesnt need to know dimensions.
     // ARGB attenuate frame
@@ -329,16 +332,18 @@ int main(int argc, const char* argv[]) {
       // Output YUV or ARGB frame.
       if (rec_is_yuv) {
         size_t bytes_rec =
-            fwrite(ch_rec, sizeof(uint8), static_cast<size_t>(total_size),
+            fwrite(ch_rec, sizeof(uint8_t), static_cast<size_t>(total_size),
                    file_rec[cur_rec]);
-        if (bytes_rec < static_cast<size_t>(total_size))
+        if (bytes_rec < static_cast<size_t>(total_size)) {
           break;
+        }
       } else {
         size_t bytes_rec =
-            fwrite(ch_dst, sizeof(uint8), static_cast<size_t>(dst_size),
+            fwrite(ch_dst, sizeof(uint8_t), static_cast<size_t>(dst_size),
                    file_rec[cur_rec]);
-        if (bytes_rec < static_cast<size_t>(dst_size))
+        if (bytes_rec < static_cast<size_t>(dst_size)) {
           break;
+        }
       }
       if (verbose) {
         printf("%5d", number_of_frames);

@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 # Copyright 2016 The LibYuv Project Authors. All rights reserved.
 #
 # Use of this source code is governed by a BSD-style license
@@ -12,19 +13,7 @@ This file emits the list of reasons why a particular build needs to be clobbered
 (or a list of 'landmines').
 """
 
-import os
 import sys
-
-script_dir = os.path.dirname(os.path.realpath(__file__))
-checkout_root = os.path.abspath(os.path.join(script_dir, os.pardir))
-sys.path.insert(0, os.path.join(checkout_root, 'build'))
-import landmine_utils
-
-
-distributor = landmine_utils.distributor
-gyp_defines = landmine_utils.gyp_defines
-gyp_msvs_version = landmine_utils.gyp_msvs_version
-platform = landmine_utils.platform
 
 
 def print_landmines():
@@ -37,8 +26,8 @@ def print_landmines():
   # dependency problems, fix the dependency problems instead of adding a
   # landmine.
   # See the Chromium version in src/build/get_landmines.py for usage examples.
-  print 'Clobber to remove GYP artifacts after switching bots to GN.'
-  print 'Another try to remove GYP artifacts after switching bots to GN.'
+  print('Clobber to remove GYP artifacts after switching bots to GN.')
+  print('Another try to remove GYP artifacts after switching bots to GN.')
 
 
 def main():

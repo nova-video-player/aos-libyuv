@@ -18,44 +18,41 @@ namespace libyuv {
 
 // Tests FourCC codes in video common, which are used for ConvertToI420().
 
-static bool TestValidChar(uint32 onecc) {
-  if ((onecc >= '0' && onecc <= '9') || (onecc >= 'A' && onecc <= 'Z') ||
-      (onecc >= 'a' && onecc <= 'z') || (onecc == ' ') || (onecc == 0xff)) {
-    return true;
-  }
-  return false;
+static bool TestValidChar(uint32_t onecc) {
+  return (onecc >= '0' && onecc <= '9') || (onecc >= 'A' && onecc <= 'Z') ||
+         (onecc >= 'a' && onecc <= 'z') || (onecc == ' ') || (onecc == 0xff);
 }
 
-static bool TestValidFourCC(uint32 fourcc, int bpp) {
+static bool TestValidFourCC(uint32_t fourcc, int bpp) {
   if (!TestValidChar(fourcc & 0xff) || !TestValidChar((fourcc >> 8) & 0xff) ||
       !TestValidChar((fourcc >> 16) & 0xff) ||
       !TestValidChar((fourcc >> 24) & 0xff)) {
     return false;
   }
-  if (bpp < 0 || bpp > 32) {
+  if (bpp < 0 || bpp > 64) {
     return false;
   }
   return true;
 }
 
 TEST_F(LibYUVBaseTest, TestCanonicalFourCC) {
-  EXPECT_EQ(static_cast<uint32>(FOURCC_I420), CanonicalFourCC(FOURCC_IYUV));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_I420), CanonicalFourCC(FOURCC_YU12));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_I422), CanonicalFourCC(FOURCC_YU16));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_I444), CanonicalFourCC(FOURCC_YU24));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_YUY2), CanonicalFourCC(FOURCC_YUYV));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_YUY2), CanonicalFourCC(FOURCC_YUVS));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_UYVY), CanonicalFourCC(FOURCC_HDYC));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_UYVY), CanonicalFourCC(FOURCC_2VUY));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_MJPG), CanonicalFourCC(FOURCC_JPEG));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_MJPG), CanonicalFourCC(FOURCC_DMB1));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_RAW), CanonicalFourCC(FOURCC_RGB3));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_24BG), CanonicalFourCC(FOURCC_BGR3));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_BGRA), CanonicalFourCC(FOURCC_CM32));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_RAW), CanonicalFourCC(FOURCC_CM24));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_RGBO), CanonicalFourCC(FOURCC_L555));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_RGBP), CanonicalFourCC(FOURCC_L565));
-  EXPECT_EQ(static_cast<uint32>(FOURCC_RGBO), CanonicalFourCC(FOURCC_5551));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_I420), CanonicalFourCC(FOURCC_IYUV));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_I420), CanonicalFourCC(FOURCC_YU12));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_I422), CanonicalFourCC(FOURCC_YU16));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_I444), CanonicalFourCC(FOURCC_YU24));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_YUY2), CanonicalFourCC(FOURCC_YUYV));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_YUY2), CanonicalFourCC(FOURCC_YUVS));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_UYVY), CanonicalFourCC(FOURCC_HDYC));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_UYVY), CanonicalFourCC(FOURCC_2VUY));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_MJPG), CanonicalFourCC(FOURCC_JPEG));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_MJPG), CanonicalFourCC(FOURCC_DMB1));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_RAW), CanonicalFourCC(FOURCC_RGB3));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_24BG), CanonicalFourCC(FOURCC_BGR3));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_BGRA), CanonicalFourCC(FOURCC_CM32));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_RAW), CanonicalFourCC(FOURCC_CM24));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_RGBO), CanonicalFourCC(FOURCC_L555));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_RGBP), CanonicalFourCC(FOURCC_L565));
+  EXPECT_EQ(static_cast<uint32_t>(FOURCC_RGBO), CanonicalFourCC(FOURCC_5551));
 }
 
 TEST_F(LibYUVBaseTest, TestFourCC) {
@@ -68,17 +65,29 @@ TEST_F(LibYUVBaseTest, TestFourCC) {
   EXPECT_TRUE(TestValidFourCC(FOURCC_NV12, FOURCC_BPP_NV12));
   EXPECT_TRUE(TestValidFourCC(FOURCC_YUY2, FOURCC_BPP_YUY2));
   EXPECT_TRUE(TestValidFourCC(FOURCC_UYVY, FOURCC_BPP_UYVY));
-  EXPECT_TRUE(TestValidFourCC(FOURCC_M420, FOURCC_BPP_M420));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_M420, FOURCC_BPP_M420));  // deprecated.
   EXPECT_TRUE(TestValidFourCC(FOURCC_Q420, FOURCC_BPP_Q420));  // deprecated.
   EXPECT_TRUE(TestValidFourCC(FOURCC_ARGB, FOURCC_BPP_ARGB));
   EXPECT_TRUE(TestValidFourCC(FOURCC_BGRA, FOURCC_BPP_BGRA));
   EXPECT_TRUE(TestValidFourCC(FOURCC_ABGR, FOURCC_BPP_ABGR));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_AR30, FOURCC_BPP_AR30));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_AB30, FOURCC_BPP_AB30));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_AR64, FOURCC_BPP_AR64));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_AB64, FOURCC_BPP_AB64));
   EXPECT_TRUE(TestValidFourCC(FOURCC_24BG, FOURCC_BPP_24BG));
   EXPECT_TRUE(TestValidFourCC(FOURCC_RAW, FOURCC_BPP_RAW));
   EXPECT_TRUE(TestValidFourCC(FOURCC_RGBA, FOURCC_BPP_RGBA));
   EXPECT_TRUE(TestValidFourCC(FOURCC_RGBP, FOURCC_BPP_RGBP));
   EXPECT_TRUE(TestValidFourCC(FOURCC_RGBO, FOURCC_BPP_RGBO));
   EXPECT_TRUE(TestValidFourCC(FOURCC_R444, FOURCC_BPP_R444));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_H420, FOURCC_BPP_H420));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_H422, FOURCC_BPP_H422));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_H010, FOURCC_BPP_H010));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_H210, FOURCC_BPP_H210));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_I010, FOURCC_BPP_I010));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_I210, FOURCC_BPP_I210));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_P010, FOURCC_BPP_P010));
+  EXPECT_TRUE(TestValidFourCC(FOURCC_P210, FOURCC_BPP_P210));
   EXPECT_TRUE(TestValidFourCC(FOURCC_MJPG, FOURCC_BPP_MJPG));
   EXPECT_TRUE(TestValidFourCC(FOURCC_YV12, FOURCC_BPP_YV12));
   EXPECT_TRUE(TestValidFourCC(FOURCC_YV16, FOURCC_BPP_YV16));

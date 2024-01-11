@@ -15,15 +15,20 @@
 #include "../unit_test/unit_test.h"
 #include "libyuv/basic_types.h"
 #include "libyuv/compare.h"
-#include "libyuv/compare_row.h" /* For HammingDistance_C */
 #include "libyuv/cpu_id.h"
 #include "libyuv/video_common.h"
+
+#ifdef ENABLE_ROW_TESTS
+#include "libyuv/compare_row.h" /* For HammingDistance_C */
+#endif
 
 namespace libyuv {
 
 // hash seed of 5381 recommended.
-static uint32 ReferenceHashDjb2(const uint8* src, uint64 count, uint32 seed) {
-  uint32 hash = seed;
+static uint32_t ReferenceHashDjb2(const uint8_t* src,
+                                  uint64_t count,
+                                  uint32_t seed) {
+  uint32_t hash = seed;
   if (count > 0) {
     do {
       hash = hash * 33 + *src++;
@@ -41,8 +46,8 @@ TEST_F(LibYUVCompareTest, Djb2_Test) {
       "The quick brown fox jumps over the lazy dog"
       " and feels as if he were in the seventh heaven of typography"
       " together with Hermann Zapf";
-  uint32 foxhash = HashDjb2(reinterpret_cast<const uint8*>(fox), 131, 5381);
-  const uint32 kExpectedFoxHash = 2611006483u;
+  uint32_t foxhash = HashDjb2(reinterpret_cast<const uint8_t*>(fox), 131, 5381);
+  const uint32_t kExpectedFoxHash = 2611006483u;
   EXPECT_EQ(kExpectedFoxHash, foxhash);
 
   for (int i = 0; i < kMaxTest; ++i) {
@@ -50,8 +55,8 @@ TEST_F(LibYUVCompareTest, Djb2_Test) {
     src_b[i] = (fastrand() & 0xff);
   }
   // Compare different buffers. Expect hash is different.
-  uint32 h1 = HashDjb2(src_a, kMaxTest, 5381);
-  uint32 h2 = HashDjb2(src_b, kMaxTest, 5381);
+  uint32_t h1 = HashDjb2(src_a, kMaxTest, 5381);
+  uint32_t h2 = HashDjb2(src_b, kMaxTest, 5381);
   EXPECT_NE(h1, h2);
 
   // Make last half same. Expect hash is different.
@@ -124,8 +129,8 @@ TEST_F(LibYUVCompareTest, BenchmarkDjb2_Opt) {
   for (int i = 0; i < kMaxTest; ++i) {
     src_a[i] = i;
   }
-  uint32 h2 = ReferenceHashDjb2(src_a, kMaxTest, 5381);
-  uint32 h1;
+  uint32_t h2 = ReferenceHashDjb2(src_a, kMaxTest, 5381);
+  uint32_t h1;
   for (int i = 0; i < benchmark_iterations_; ++i) {
     h1 = HashDjb2(src_a, kMaxTest, 5381);
   }
@@ -139,8 +144,8 @@ TEST_F(LibYUVCompareTest, BenchmarkDjb2_Unaligned) {
   for (int i = 0; i < kMaxTest; ++i) {
     src_a[i + 1] = i;
   }
-  uint32 h2 = ReferenceHashDjb2(src_a + 1, kMaxTest, 5381);
-  uint32 h1;
+  uint32_t h2 = ReferenceHashDjb2(src_a + 1, kMaxTest, 5381);
+  uint32_t h1;
   for (int i = 0; i < benchmark_iterations_; ++i) {
     h1 = HashDjb2(src_a + 1, kMaxTest, 5381);
   }
@@ -149,7 +154,7 @@ TEST_F(LibYUVCompareTest, BenchmarkDjb2_Unaligned) {
 }
 
 TEST_F(LibYUVCompareTest, BenchmarkARGBDetect_Opt) {
-  uint32 fourcc;
+  uint32_t fourcc;
   const int kMaxTest = benchmark_width_ * benchmark_height_ * 4;
   align_buffer_page_end(src_a, kMaxTest);
   for (int i = 0; i < kMaxTest; ++i) {
@@ -159,12 +164,12 @@ TEST_F(LibYUVCompareTest, BenchmarkARGBDetect_Opt) {
   src_a[0] = 0;
   fourcc = ARGBDetect(src_a, benchmark_width_ * 4, benchmark_width_,
                       benchmark_height_);
-  EXPECT_EQ(static_cast<uint32>(libyuv::FOURCC_BGRA), fourcc);
+  EXPECT_EQ(static_cast<uint32_t>(libyuv::FOURCC_BGRA), fourcc);
   src_a[0] = 255;
   src_a[3] = 0;
   fourcc = ARGBDetect(src_a, benchmark_width_ * 4, benchmark_width_,
                       benchmark_height_);
-  EXPECT_EQ(static_cast<uint32>(libyuv::FOURCC_ARGB), fourcc);
+  EXPECT_EQ(static_cast<uint32_t>(libyuv::FOURCC_ARGB), fourcc);
   src_a[3] = 255;
 
   for (int i = 0; i < benchmark_iterations_; ++i) {
@@ -177,7 +182,7 @@ TEST_F(LibYUVCompareTest, BenchmarkARGBDetect_Opt) {
 }
 
 TEST_F(LibYUVCompareTest, BenchmarkARGBDetect_Unaligned) {
-  uint32 fourcc;
+  uint32_t fourcc;
   const int kMaxTest = benchmark_width_ * benchmark_height_ * 4 + 1;
   align_buffer_page_end(src_a, kMaxTest);
   for (int i = 1; i < kMaxTest; ++i) {
@@ -187,12 +192,12 @@ TEST_F(LibYUVCompareTest, BenchmarkARGBDetect_Unaligned) {
   src_a[0 + 1] = 0;
   fourcc = ARGBDetect(src_a + 1, benchmark_width_ * 4, benchmark_width_,
                       benchmark_height_);
-  EXPECT_EQ(static_cast<uint32>(libyuv::FOURCC_BGRA), fourcc);
+  EXPECT_EQ(static_cast<uint32_t>(libyuv::FOURCC_BGRA), fourcc);
   src_a[0 + 1] = 255;
   src_a[3 + 1] = 0;
   fourcc = ARGBDetect(src_a + 1, benchmark_width_ * 4, benchmark_width_,
                       benchmark_height_);
-  EXPECT_EQ(static_cast<uint32>(libyuv::FOURCC_ARGB), fourcc);
+  EXPECT_EQ(static_cast<uint32_t>(libyuv::FOURCC_ARGB), fourcc);
   src_a[3 + 1] = 255;
 
   for (int i = 0; i < benchmark_iterations_; ++i) {
@@ -204,6 +209,7 @@ TEST_F(LibYUVCompareTest, BenchmarkARGBDetect_Unaligned) {
   free_aligned_buffer_page_end(src_a);
 }
 
+#ifdef ENABLE_ROW_TESTS
 TEST_F(LibYUVCompareTest, BenchmarkHammingDistance_Opt) {
   const int kMaxWidth = 4096 * 3;
   align_buffer_page_end(src_a, kMaxWidth);
@@ -214,14 +220,14 @@ TEST_F(LibYUVCompareTest, BenchmarkHammingDistance_Opt) {
   // Test known value
   memcpy(src_a, "test0123test4567", 16);
   memcpy(src_b, "tick0123tock4567", 16);
-  uint32 h1 = HammingDistance_C(src_a, src_b, 16);
+  uint32_t h1 = HammingDistance_C(src_a, src_b, 16);
   EXPECT_EQ(16u, h1);
 
   // Test C vs OPT on random buffer
   MemRandomize(src_a, kMaxWidth);
   MemRandomize(src_b, kMaxWidth);
 
-  uint32 h0 = HammingDistance_C(src_a, src_b, kMaxWidth);
+  uint32_t h0 = HammingDistance_C(src_a, src_b, kMaxWidth);
 
   int count =
       benchmark_iterations_ *
@@ -229,13 +235,34 @@ TEST_F(LibYUVCompareTest, BenchmarkHammingDistance_Opt) {
   for (int i = 0; i < count; ++i) {
 #if defined(HAS_HAMMINGDISTANCE_NEON)
     h1 = HammingDistance_NEON(src_a, src_b, kMaxWidth);
-#elif defined(HAS_HAMMINGDISTANCE_X86)
-    h1 = HammingDistance_X86(src_a, src_b, kMaxWidth);
+#elif defined(HAS_HAMMINGDISTANCE_AVX2)
+    int has_avx2 = TestCpuFlag(kCpuHasAVX2);
+    if (has_avx2) {
+      h1 = HammingDistance_AVX2(src_a, src_b, kMaxWidth);
+    } else {
+      int has_sse42 = TestCpuFlag(kCpuHasSSE42);
+      if (has_sse42) {
+        h1 = HammingDistance_SSE42(src_a, src_b, kMaxWidth);
+      } else {
+        int has_ssse3 = TestCpuFlag(kCpuHasSSSE3);
+        if (has_ssse3) {
+          h1 = HammingDistance_SSSE3(src_a, src_b, kMaxWidth);
+        } else {
+          h1 = HammingDistance_C(src_a, src_b, kMaxWidth);
+        }
+      }
+    }
+#elif defined(HAS_HAMMINGDISTANCE_SSE42)
+    int has_sse42 = TestCpuFlag(kCpuHasSSE42);
+    if (has_sse42) {
+      h1 = HammingDistance_SSE42(src_a, src_b, kMaxWidth);
+    } else {
+      h1 = HammingDistance_C(src_a, src_b, kMaxWidth);
+    }
 #else
     h1 = HammingDistance_C(src_a, src_b, kMaxWidth);
 #endif
   }
-
   EXPECT_EQ(h0, h1);
 
   free_aligned_buffer_page_end(src_a);
@@ -252,14 +279,14 @@ TEST_F(LibYUVCompareTest, BenchmarkHammingDistance_C) {
   // Test known value
   memcpy(src_a, "test0123test4567", 16);
   memcpy(src_b, "tick0123tock4567", 16);
-  uint32 h1 = HammingDistance_C(src_a, src_b, 16);
+  uint32_t h1 = HammingDistance_C(src_a, src_b, 16);
   EXPECT_EQ(16u, h1);
 
   // Test C vs OPT on random buffer
   MemRandomize(src_a, kMaxWidth);
   MemRandomize(src_b, kMaxWidth);
 
-  uint32 h0 = HammingDistance_C(src_a, src_b, kMaxWidth);
+  uint32_t h0 = HammingDistance_C(src_a, src_b, kMaxWidth);
 
   int count =
       benchmark_iterations_ *
@@ -283,14 +310,14 @@ TEST_F(LibYUVCompareTest, BenchmarkHammingDistance) {
 
   memcpy(src_a, "test0123test4567", 16);
   memcpy(src_b, "tick0123tock4567", 16);
-  uint64 h1 = ComputeHammingDistance(src_a, src_b, 16);
+  uint64_t h1 = ComputeHammingDistance(src_a, src_b, 16);
   EXPECT_EQ(16u, h1);
 
   // Test C vs OPT on random buffer
   MemRandomize(src_a, kMaxWidth);
   MemRandomize(src_b, kMaxWidth);
 
-  uint32 h0 = HammingDistance_C(src_a, src_b, kMaxWidth);
+  uint32_t h0 = HammingDistance_C(src_a, src_b, kMaxWidth);
 
   int count =
       benchmark_iterations_ *
@@ -305,6 +332,100 @@ TEST_F(LibYUVCompareTest, BenchmarkHammingDistance) {
   free_aligned_buffer_page_end(src_b);
 }
 
+// Tests low levels match reference C for specified size.
+// The opt implementations have size limitations
+// For NEON the counters are 16 bit so the shorts overflow after 65536 bytes.
+// So doing one less iteration of the loop is the maximum.
+#if defined(HAS_HAMMINGDISTANCE_NEON)
+static const int kMaxOptCount = 65536 - 32;  // 65504
+#else
+static const int kMaxOptCount = (1 << (32 - 3)) - 64;  // 536870848
+#endif
+
+TEST_F(LibYUVCompareTest, TestHammingDistance_Opt) {
+  uint32_t h1 = 0;
+  const int kMaxWidth = (benchmark_width_ * benchmark_height_ + 63) & ~63;
+  align_buffer_page_end(src_a, kMaxWidth);
+  align_buffer_page_end(src_b, kMaxWidth);
+  memset(src_a, 255u, kMaxWidth);
+  memset(src_b, 0u, kMaxWidth);
+
+  uint64_t h0 = ComputeHammingDistance(src_a, src_b, kMaxWidth);
+  EXPECT_EQ(kMaxWidth * 8ULL, h0);
+
+  for (int i = 0; i < benchmark_iterations_; ++i) {
+#if defined(HAS_HAMMINGDISTANCE_NEON)
+    h1 = HammingDistance_NEON(src_a, src_b, kMaxWidth);
+#elif defined(HAS_HAMMINGDISTANCE_AVX2)
+    int has_avx2 = TestCpuFlag(kCpuHasAVX2);
+    if (has_avx2) {
+      h1 = HammingDistance_AVX2(src_a, src_b, kMaxWidth);
+    } else {
+      int has_sse42 = TestCpuFlag(kCpuHasSSE42);
+      if (has_sse42) {
+        h1 = HammingDistance_SSE42(src_a, src_b, kMaxWidth);
+      } else {
+        int has_ssse3 = TestCpuFlag(kCpuHasSSSE3);
+        if (has_ssse3) {
+          h1 = HammingDistance_SSSE3(src_a, src_b, kMaxWidth);
+        } else {
+          h1 = HammingDistance_C(src_a, src_b, kMaxWidth);
+        }
+      }
+    }
+#elif defined(HAS_HAMMINGDISTANCE_SSE42)
+    int has_sse42 = TestCpuFlag(kCpuHasSSE42);
+    if (has_sse42) {
+      h1 = HammingDistance_SSE42(src_a, src_b, kMaxWidth);
+    } else {
+      h1 = HammingDistance_C(src_a, src_b, kMaxWidth);
+    }
+#else
+    h1 = HammingDistance_C(src_a, src_b, kMaxWidth);
+#endif
+  }
+
+  // A large count will cause the low level to potentially overflow so the
+  // result can not be expected to be correct.
+  // TODO(fbarchard): Consider expecting the low 16 bits to match.
+  if (kMaxWidth <= kMaxOptCount) {
+    EXPECT_EQ(kMaxWidth * 8U, h1);
+  } else {
+    if (kMaxWidth * 8ULL != static_cast<uint64_t>(h1)) {
+      printf(
+          "warning - HammingDistance_Opt %u does not match %llu "
+          "but length of %u is longer than guaranteed.\n",
+          h1, kMaxWidth * 8ULL, kMaxWidth);
+    } else {
+      printf(
+          "warning - HammingDistance_Opt %u matches but length of %u "
+          "is longer than guaranteed.\n",
+          h1, kMaxWidth);
+    }
+  }
+
+  free_aligned_buffer_page_end(src_a);
+  free_aligned_buffer_page_end(src_b);
+}
+#endif  // ENABLE_ROW_TESTS
+
+TEST_F(LibYUVCompareTest, TestHammingDistance) {
+  align_buffer_page_end(src_a, benchmark_width_ * benchmark_height_);
+  align_buffer_page_end(src_b, benchmark_width_ * benchmark_height_);
+  memset(src_a, 255u, benchmark_width_ * benchmark_height_);
+  memset(src_b, 0, benchmark_width_ * benchmark_height_);
+
+  uint64_t h1 = 0;
+  for (int i = 0; i < benchmark_iterations_; ++i) {
+    h1 = ComputeHammingDistance(src_a, src_b,
+                                benchmark_width_ * benchmark_height_);
+  }
+  EXPECT_EQ(benchmark_width_ * benchmark_height_ * 8ULL, h1);
+
+  free_aligned_buffer_page_end(src_a);
+  free_aligned_buffer_page_end(src_b);
+}
+
 TEST_F(LibYUVCompareTest, BenchmarkSumSquareError_Opt) {
   const int kMaxWidth = 4096 * 3;
   align_buffer_page_end(src_a, kMaxWidth);
@@ -314,7 +435,7 @@ TEST_F(LibYUVCompareTest, BenchmarkSumSquareError_Opt) {
 
   memcpy(src_a, "test0123test4567", 16);
   memcpy(src_b, "tick0123tock4567", 16);
-  uint64 h1 = ComputeSumSquareError(src_a, src_b, 16);
+  uint64_t h1 = ComputeSumSquareError(src_a, src_b, 16);
   EXPECT_EQ(790u, h1);
 
   for (int i = 0; i < kMaxWidth; ++i) {
@@ -344,7 +465,7 @@ TEST_F(LibYUVCompareTest, SumSquareError) {
   memset(src_a, 0, kMaxWidth);
   memset(src_b, 0, kMaxWidth);
 
-  uint64 err;
+  uint64_t err;
   err = ComputeSumSquareError(src_a, src_b, kMaxWidth);
 
   EXPECT_EQ(0u, err);
@@ -366,10 +487,10 @@ TEST_F(LibYUVCompareTest, SumSquareError) {
   }
 
   MaskCpuFlags(disable_cpu_flags_);
-  uint64 c_err = ComputeSumSquareError(src_a, src_b, kMaxWidth);
+  uint64_t c_err = ComputeSumSquareError(src_a, src_b, kMaxWidth);
 
   MaskCpuFlags(benchmark_cpu_info_);
-  uint64 opt_err = ComputeSumSquareError(src_a, src_b, kMaxWidth);
+  uint64_t opt_err = ComputeSumSquareError(src_a, src_b, kMaxWidth);
 
   EXPECT_EQ(c_err, opt_err);
 
@@ -388,9 +509,10 @@ TEST_F(LibYUVCompareTest, BenchmarkPsnr_Opt) {
   MaskCpuFlags(benchmark_cpu_info_);
 
   double opt_time = get_time();
-  for (int i = 0; i < benchmark_iterations_; ++i)
+  for (int i = 0; i < benchmark_iterations_; ++i) {
     CalcFramePsnr(src_a, benchmark_width_, src_b, benchmark_width_,
                   benchmark_width_, benchmark_height_);
+  }
 
   opt_time = (get_time() - opt_time) / benchmark_iterations_;
   printf("BenchmarkPsnr_Opt - %8.2f us opt\n", opt_time * 1e6);
@@ -412,9 +534,10 @@ TEST_F(LibYUVCompareTest, BenchmarkPsnr_Unaligned) {
   MaskCpuFlags(benchmark_cpu_info_);
 
   double opt_time = get_time();
-  for (int i = 0; i < benchmark_iterations_; ++i)
+  for (int i = 0; i < benchmark_iterations_; ++i) {
     CalcFramePsnr(src_a + 1, benchmark_width_, src_b, benchmark_width_,
                   benchmark_width_, benchmark_height_);
+  }
 
   opt_time = (get_time() - opt_time) / benchmark_iterations_;
   printf("BenchmarkPsnr_Opt - %8.2f us opt\n", opt_time * 1e6);
@@ -513,9 +636,10 @@ TEST_F(LibYUVCompareTest, DISABLED_BenchmarkSsim_Opt) {
   MaskCpuFlags(benchmark_cpu_info_);
 
   double opt_time = get_time();
-  for (int i = 0; i < benchmark_iterations_; ++i)
+  for (int i = 0; i < benchmark_iterations_; ++i) {
     CalcFrameSsim(src_a, benchmark_width_, src_b, benchmark_width_,
                   benchmark_width_, benchmark_height_);
+  }
 
   opt_time = (get_time() - opt_time) / benchmark_iterations_;
   printf("BenchmarkSsim_Opt - %8.2f us opt\n", opt_time * 1e6);
